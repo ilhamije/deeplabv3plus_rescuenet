@@ -6,20 +6,9 @@ from PIL import Image
 import torchvision.transforms as transforms
 
 
-# Define your transformation pipeline
-my_transforms = transforms.Compose([
-    transforms.Resize((513, 513)),  # Resize to the desired input size
-    transforms.ToTensor(),           # Convert PIL images to tensors
-    # Normalization values for pre-trained models
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225]),
-    # Add more transformations as needed
-])
-
-
 class RescueNetDataset(data.Dataset):
-    def __init__(self, root_dir, split='train', transform=None):
-        self.root_dir = root_dir
+    def __init__(self, root, split='train', transform=None):
+        self.root = root
         self.split = split
         self.transform = transform
 
@@ -28,9 +17,9 @@ class RescueNetDataset(data.Dataset):
         self.labels = []
 
         image_dir = os.path.join(
-            root_dir, 'train' if split == 'train' else 'val', 'train-org-img')
+            root, 'train' if split == 'train' else 'val', 'train-org-img')
         label_dir = os.path.join(
-            root_dir, 'train' if split == 'train' else 'val', 'train-label-img')
+            root, 'train' if split == 'train' else 'val', 'train-label-img')
 
         # Collect image and label file paths
         for img_file in os.listdir(image_dir):
@@ -107,17 +96,10 @@ def load_rescuenet_dataset(root, batch_size=4, split='train', transforms=None):
         DataLoader: A DataLoader instance for the dataset.
     """
     # Initialize the RescueNetDataset with the correct split argument
-    dataset = RescueNetDataset(root_dir=root, split=split, transform=transforms)
+    dataset = RescueNetDataset(root=root, split=split, transform=transforms)
 
     # Create a DataLoader for the dataset
     dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=batch_size, shuffle=True, num_workers=4)  # num_workers for parallel data loading
 
     return dataloader
-
-
-# Then use this pipeline when creating the DataLoader
-train_loader = load_rescuenet_dataset(
-    root='path_to_rescuenet_dataset', batch_size=16, split='train', transforms=my_transforms)
-val_loader = load_rescuenet_dataset(
-    root='path_to_rescuenet_dataset', batch_size=16, split='val', transforms=my_transforms)

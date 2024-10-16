@@ -177,9 +177,9 @@ def get_dataset(opts):
                 et.ExtNormalize(mean=[0.485, 0.456, 0.406],
                                 std=[0.229, 0.224, 0.225]),
             ])
-        train_dst = RescueNetDataset(root=opts.data_root, year=opts.year,
+        train_dst = RescueNetDataset(root=opts.data_root,
                                     image_set='train', download=opts.download, transform=train_transform)
-        val_dst = RescueNetDataset(root=opts.data_root, year=opts.year,
+        val_dst = RescueNetDataset(root=opts.data_root,
                                   image_set='val', download=False, transform=val_transform)
 
     return train_dst, val_dst
@@ -212,7 +212,7 @@ def validate(opts, model, loader, device, metrics, ret_samples_ids=None):
                     (images[0].detach().cpu().numpy(), targets[0], preds[0]))
 
             if opts.save_val_results:
-                for i in range(len(images)):
+                for i, _ in enumerate(images):
                     image = images[i].detach().cpu().numpy()
                     target = targets[i]
                     pred = preds[i]
@@ -246,6 +246,8 @@ def main():
         opts.num_classes = 21
     elif opts.dataset.lower() == 'cityscapes':
         opts.num_classes = 19
+    elif opts.dataset.lower() == 'rescuenet':
+        opts.num_classes = 11
 
     # Setup visualization
     vis = Visualizer(port=opts.vis_port,
