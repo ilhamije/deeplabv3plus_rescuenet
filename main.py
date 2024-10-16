@@ -236,10 +236,10 @@ def main():
 
     train_dst, val_dst = get_dataset(opts)
     train_loader = data.DataLoader(
-        train_dst, batch_size=opts.batch_size, shuffle=True, num_workers=2,
+        train_dst, batch_size=opts.batch_size, shuffle=True, num_workers=2, pin_memory=True, persistent_workers=True,
         drop_last=True)  # drop_last=True to ignore single-image batches.
     val_loader = data.DataLoader(
-        val_dst, batch_size=opts.val_batch_size, shuffle=True, num_workers=2)
+        val_dst, batch_size=opts.val_batch_size, shuffle=True, num_workers=2, pin_memory=True, persistent_workers=True)
     print("Dataset: %s, Train set: %d, Val set: %d" %
           (opts.dataset, len(train_dst), len(val_dst)))
 
@@ -320,6 +320,7 @@ def main():
         return
 
     interval_loss = 0
+    print('interval loss' + '==' * 20)
     while True:  # cur_itrs < opts.total_itrs:
         # =====  Train  =====
         model.train()
