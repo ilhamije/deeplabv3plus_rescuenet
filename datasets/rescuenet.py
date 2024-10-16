@@ -7,9 +7,9 @@ import torchvision.transforms as transforms
 
 
 class RescueNetDataset(data.Dataset):
-    def __init__(self, root, split='train', transform=None):
+    def __init__(self, root, image_set='train', transform=None):
         self.root = root
-        self.split = split
+        self.image_set = image_set
         self.transform = transform
 
         # Define image and label paths
@@ -17,9 +17,9 @@ class RescueNetDataset(data.Dataset):
         self.labels = []
 
         image_dir = os.path.join(
-            root, 'train' if split == 'train' else 'val', 'train-org-img')
+            root, 'train' if image_set == 'train' else 'val', 'train-org-img')
         label_dir = os.path.join(
-            root, 'train' if split == 'train' else 'val', 'train-label-img')
+            root, 'train' if image_set == 'train' else 'val', 'train-label-img')
 
         # Collect image and label file paths
         for img_file in os.listdir(image_dir):
@@ -82,7 +82,7 @@ class RescueNetDataset(data.Dataset):
         return cls.cmap[mask]
 
 
-def load_rescuenet_dataset(root, batch_size=4, split='train', transforms=None):
+def load_rescuenet_dataset(root, batch_size=4, image_set='train', transforms=None):
     """
     Create a DataLoader for the RescueNet dataset.
 
@@ -96,7 +96,7 @@ def load_rescuenet_dataset(root, batch_size=4, split='train', transforms=None):
         DataLoader: A DataLoader instance for the dataset.
     """
     # Initialize the RescueNetDataset with the correct split argument
-    dataset = RescueNetDataset(root=root, split=split, transform=transforms)
+    dataset = RescueNetDataset(root=root, image_set=image_set, transform=transforms)
 
     # Create a DataLoader for the dataset
     dataloader = torch.utils.data.DataLoader(
