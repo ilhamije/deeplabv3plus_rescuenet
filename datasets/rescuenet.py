@@ -3,60 +3,89 @@ import torch
 import torch.utils.data as data
 import numpy as np
 from PIL import Image
+import torchvision.transforms as transforms
+
+
+# Define your transformation pipeline
+my_transforms = transforms.Compose([
+    transforms.Resize((513, 513)),  # Resize to the desired input size
+    transforms.ToTensor(),           # Convert PIL images to tensors
+    # Normalization values for pre-trained models
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                         std=[0.229, 0.224, 0.225]),
+    # Add more transformations as needed
+])
 
 
 class RescueNetDataset(data.Dataset):
-    # Color mapping from the original paper
-    cmap = np.array([
-        [0, 0, 0],        # Unlabeled
-        [61, 230, 250],   # Water
-        [180, 120, 120],  # Building - No Damage
-        [235, 255, 7],    # Building - Medium Damage
-        [255, 184, 6],    # Building - Major Damage
-        [255, 0, 0],      # Building - Total Destruction
-        [255, 0, 245],    # Vehicle
-        [140, 140, 140],  # Road - Clear
-        [160, 150, 20],   # Road - Blocked
-        [4, 250, 7],      # Tree
-        [255, 235, 0],    # Pool
-    ], dtype=np.uint8)
+    def __init__(self, root_dir, split='train', transform=None):
+        self.root_dir = root_dir
+        self.split = split
+        self.transform = transform
 
-    def __init__(self, root, image_set='train', transforms=None):
-        self.root = root
-        self.image_set = image_set
-        self.transforms = transforms
+        # Define image and label paths
+        self.images = []
+        self.labels = []
 
-        # Paths to directories following VOC structure
-        self.image_dir = os.path.join(self.root, 'JPEGImages')
-        self.label_dir = os.path.join(self.root, 'SegmentationClass')
-        self.split_file = os.path.join(
-            self.root, 'ImageSets', 'Segmentation', f'{self.image_set}.txt')
+        image_dir = os.path.join(
+            root_dir, 'train' if split == 'train' else 'val', 'train-org-img')
+        label_dir = os.path.join(
+            root_dir, 'train' if split == 'train' else 'val', 'train-label-img')
 
-        # Load image IDs from the split file
-        with open(self.split_file, 'r') as f:
-            self.image_ids = [line.strip() for line in f]
+        # Collect image and label file paths
+        for img_file in os.listdir(image_dir):
+            if img_file.endswith('.jpg'):
+                self.images.append(os.path.join(image_dir, img_file))
+                label_file = img_file.replace('.jpg', '_lab.png')
+                self.labels.append(os.path.join(label_dir, label_file))
+
+        # Define color mapping for labels
+        self.color_map = {
+            0: (0, 0, 0),         # Unlabeled
+            1: (61, 230, 250),    # Water
+            2: (180, 120, 120),   # Building - No Damage
+            3: (235, 255, 7),     # Building - Medium Damage
+            4: (255, 184, 6),     # Building - Major Damage
+            5: (255, 0, 0),       # Building - Total Destruction
+            6: (255, 0, 245),     # Vehicle
+            7: (140, 140, 140),   # Road - Clear
+            8: (160, 150, 20),    # Road - Blocked
+            9: (4, 250, 7),       # Tree
+            10: (255, 235, 0),    # Pool
+        }
 
     def __len__(self):
-        return len(self.image_ids)
+        return len(self.images)
 
-    def __getitem__(self, index):
-        image_id = self.image_ids[index]
+    def __getitem__(self, idx):
+        img_path = self.images[idx]
+        label_path = self.labels[idx]
 
-        # Construct full paths for the image and the corresponding label mask
-        img_path = os.path.join(self.image_dir, f'{image_id}.jpg')
-        lbl_path = os.path.join(self.label_dir, f'{image_id}_lab.png')
+        image = Image.open(img_path).convert("RGB")
+        label = Image.open(label_path)
 
-        img = Image.open(img_path).convert('RGB')
-        lbl = Image.open(lbl_path)
+        # Convert label image to color mapping
+        label = self.colorize_label(label)
 
-        # Apply any provided transformations (if available)
-        if self.transforms:
-            img, lbl = self.transforms(img, lbl)
+        if self.transform:
+            image = self.transform(image)
+            label = self.transform(label)
 
-        # Convert label to a numpy array for easier processing
-        lbl = np.array(lbl, dtype=np.int64)
+        return image, label
 
-        return img, lbl
+    def colorize_label(self, label):
+        """Convert label indices to color mapping."""
+        # Create an empty image with RGB mode
+        colorized_label = Image.new("RGB", label.size)
+
+        # Map each pixel to the corresponding color
+        for label_index, color in self.color_map.items():
+            # Create a mask for the current label index
+            mask = np.array(label) == label_index
+            colorized_label_np = np.array(colorized_label)
+            colorized_label_np[mask] = color
+
+        return Image.fromarray(colorized_label_np)
 
     @classmethod
     def decode_target(cls, mask):
@@ -64,21 +93,31 @@ class RescueNetDataset(data.Dataset):
         return cls.cmap[mask]
 
 
-def load_rescuenet_dataset(root, batch_size=4, image_set='train', transforms=None):
+def load_rescuenet_dataset(root, batch_size=4, split='train', transforms=None):
     """
     Create a DataLoader for the RescueNet dataset.
 
     Args:
         root (str): Root directory of the dataset.
         batch_size (int): Number of samples per batch.
-        image_set (str): Split of the dataset, e.g., 'train', 'val'.
+        split (str): Split of the dataset, e.g., 'train', 'val'.
         transforms (callable, optional): Transformations to apply to the dataset.
 
     Returns:
         DataLoader: A DataLoader instance for the dataset.
     """
-    dataset = RescueNetDataset(
-        root=root, image_set=image_set, transforms=transforms)
+    # Initialize the RescueNetDataset with the correct split argument
+    dataset = RescueNetDataset(root_dir=root, split=split, transform=transforms)
+
+    # Create a DataLoader for the dataset
     dataloader = torch.utils.data.DataLoader(
-        dataset, batch_size=batch_size, shuffle=True)
+        dataset, batch_size=batch_size, shuffle=True, num_workers=4)  # num_workers for parallel data loading
+
     return dataloader
+
+
+# Then use this pipeline when creating the DataLoader
+train_loader = load_rescuenet_dataset(
+    root='path_to_rescuenet_dataset', batch_size=16, split='train', transforms=my_transforms)
+val_loader = load_rescuenet_dataset(
+    root='path_to_rescuenet_dataset', batch_size=16, split='val', transforms=my_transforms)
