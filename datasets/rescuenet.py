@@ -16,10 +16,9 @@ class RescueNetDataset(data.Dataset):
         self.images = []
         self.labels = []
 
-        image_dir = os.path.join(
-            root, 'train' if image_set == 'train' else 'val', 'train-org-img')
-        label_dir = os.path.join(
-            root, 'train' if image_set == 'train' else 'val', 'train-label-img')
+        # Adjust the image and label paths
+        image_dir = os.path.join(root, 'RescueNet', image_set, 'train-org-img')
+        label_dir = os.path.join(root, 'RescueNet', image_set, 'train-label-img')
 
         # Collect image and label file paths
         for img_file in os.listdir(image_dir):
