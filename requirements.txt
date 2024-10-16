@@ -1,6 +1,6 @@
 torch
 torchvision
-numpy
+#numpy
 pillow
 scikit-learn
 tqdm
